@@ -8,8 +8,8 @@ Flutter Golden Server
 
 Start the server and forward the port from the device:
 
-`$ dart run bin/golden_server`
-`$ adb reverse tcp:9999 tcp:9999`
+```$ dart run bin/golden_server```
+```$ adb reverse tcp:9999 tcp:9999```
 
 ### Test
 
@@ -18,7 +18,7 @@ In your `integration/foo_test.dart` add the following:
 ```
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  goldenFileComparator = HostGoldenFileComparator();IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  goldenFileComparator = HostGoldenFileComparator();
   ...
 }
 ```
@@ -26,7 +26,7 @@ void main() {
 ## Design Sketch
 
 Server process running on host machine has following features:
-  Modes:
+  - Modes:
     - Local: Receive test images from target device and determine if they match the goldens held on the host.
     - CI: Fetch test images from CI server.
   - Provide a UI for the developer to ACK/NACK the latest test images.

@@ -118,7 +118,10 @@ Future<List<GoldenFilePair>> findGoldenPairs(
       );
     }
 
-    pairs.add(GoldenFilePair.uncheckedAssumeExists(canonicalPath, updatedPath));
+    pairs.add(GoldenFilePair.uncheckedAssumeExists(
+      canonical.path,
+      updated.path,
+    ));
   }
 
   return pairs;

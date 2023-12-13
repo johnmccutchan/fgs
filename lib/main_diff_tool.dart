@@ -18,47 +18,6 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 
-/// Configuration for how the initialize the diff tool.
-final class DiffToolBootstrap {
-  /// Where the golden files are located.
-  ///
-  /// On an initial run of a newly authored test, this directory may be blank
-  /// or contain only a few golden files. On subsequent runs, this directory
-  /// will contain all the golden files within [lastRunPath].
-  final String goldenPath;
-
-  /// Where the last run's golden files are located.
-  final String lastRunPath;
-
-  /// The pairs of golden files found in [goldenPath] and [lastRunPath].
-  ///
-  /// See [GoldenFilePair] for more information.
-  final List<GoldenFilePair> pairs;
-
-  /// Initializes the diff tool with path and pair information.
-  DiffToolBootstrap({
-    required this.goldenPath,
-    required this.lastRunPath,
-    required this.pairs,
-  });
-}
-
-/// Service API for the diff tool.
-///
-/// As a desktop app, the tool is able to load and make changes to files
-/// synchronously. However, the APIs are still asynchronous to allow for a
-/// server-side implementation with a web UI.
-abstract base class DiffToolService {
-  /// Loads the golden file pairs from [goldenPath] and [lastRunPath].
-  Future<DiffToolBootstrap> load();
-
-  /// Approves the golden file pairs in [pairs].
-  ///
-  /// In practice, this copies the updated golden file to the canonical golden
-  /// file, making changes to the golden files on disk.
-  Future<void> approve(List<GoldenFilePair> pairs);
-}
-
 /// The entry point for the diff tool.
 ///
 /// To run:
@@ -71,6 +30,9 @@ abstract base class DiffToolService {
 /// flutter run -d macos -t lib/main_diff_tool.dart -a "test/fixtures/goldens" -a "test/fixtures/goldens_example_run"
 /// ```
 void main(List<String> args) {
+  // If this is running on a desktop, use the local diff tool service.
+  final DiffToolService service;
+
   if (args.length != 2) {
     runApp(const MaterialApp(
         home: Scaffold(

@@ -10,6 +10,8 @@ import 'package:path/path.dart' as path;
 GoldenServer setupGoldenServer() {
   Directory current = Directory.current;
   Directory? projectRoot;
+  final Directory tempDirectory = Directory.systemTemp.createTempSync('golden_comparisons');
+
   while (current.path != current.parent.path) {
     File pubspec = File(path.join(current.path, 'pubspec.yaml'));
     if (pubspec.existsSync()) {
@@ -22,7 +24,7 @@ GoldenServer setupGoldenServer() {
     print('Could not find pubspec.yaml in ${Directory.current.path}');
     exit(1);
   }
-  return GoldenServer(projectRoot.path);
+  return GoldenServer(projectRoot.path, tempDirectory);
 }
 
 final GoldenServer goldenServer = setupGoldenServer();
@@ -53,10 +55,15 @@ void main() async {
       var process = await Process.start('flutter', <String>[
         'run',
         '-d',
-        'chrome',
+        'macos',
+        '-t',
+        'lib/main_diff_tool.dart',
+        '-a ${goldenServer.tempDirectory.absolute.path}',
+        '-a ${path.absolute(goldenServer.existingGoldenBasePath)}',
       ]);
       await process.exitCode;
 
+      goldenServer.tempDirectory.deleteSync(recursive: true);
       for (var subscription in subscriptions) {
         await subscription.cancel();
       }

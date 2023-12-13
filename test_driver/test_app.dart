@@ -24,7 +24,7 @@ void main() async {
   });
 
   testWidgets('Second method just for shits', (WidgetTester tester) async {
-    await tester.pumpWidget(Container(color: Colors.red));
+    await tester.pumpWidget(Container(color: Colors.blue));
 
     await expectLater(find.byType(Container), matchesGoldenFile('solid_color.png'));
   });

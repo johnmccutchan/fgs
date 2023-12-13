@@ -91,11 +91,6 @@ Future<ui.Image> convertToUiImage(img.Image image) async {
 }
 
 final class _DiffToolPageState extends State<_DiffToolPage> {
-  List<GoldenFilePair>? _pairs;
-  List<Diff> _diffs = [];
-  final Completer _loaded = Completer();
-  int _index = 0;
-  String? _error;
   static const String clientPort = String.fromEnvironment('fgs.serverPort');
   List<(String state, String key, ui.Image image)> images = [];
 
@@ -120,47 +115,33 @@ final class _DiffToolPageState extends State<_DiffToolPage> {
       }
       var responses = await Future.wait(pending);
       for (var i = 0; i < responses.length; i++) {
-        var completer = Completer<ui.Image>();
-        ui.decodeImageFromList(responses[i].bodyBytes, (ui.Image result) {
-          completer.complete(result);
-        });
+        // Note: using package:image is only necessary if you want to diff the
+        // pixels on the client.
+        ui.Image uiImage;
+        try {
+          img.Image? image = img.decodePng(responses[i].bodyBytes);
+          if (image == null) {
+            continue;
+          }
+          var completer = Completer<ui.Image>();
+          ui.decodeImageFromPixels(image!.buffer.asUint8List(), image.width, image.height, ui.PixelFormat.rgba8888, (result) {
+            completer.complete(result);
+          });
+          uiImage = await completer.future;
+        } catch (err) {
+          print(err);
+          continue;
+        }
         images.add((
           configs[i]['key'] as String,
           configs[i]['state'] as String,
-          await completer.future,
+          uiImage
         ));
       }
       setState(() {
-
+        //
       });
     });
-
-
-
-    // Load golden file pairs.
-    // findGoldenPairs(widget.goldenPath, widget.lastRunPath).then((pairs) async {
-    //   _pairs = pairs;
-    //   for (final pair in pairs) {
-    //     final cmd = img.Command();
-    //     cmd.decodeImageFile(pair.canonical.path);
-    //     img.Image? golden = await cmd.getImage();
-    //     cmd.decodeImageFile(pair.updated.path);
-    //     img.Image? test = await cmd.getImage();
-    //     try {
-    //       ImageDiffResult diffResult = diffImage(golden, test);
-    //       ui.Image uiDiffImage = await convertToUiImage(diffResult.diff);
-    //       _diffs.add(Diff(uiDiffImage, diffResult.percentDifferent));
-    //     } catch (e) {
-    //       print(e);
-    //     }
-    //   }
-    //   _loaded.complete();
-    //   setState(() {});
-    // }).catchError((e) {
-    //   setState(() {
-    //     _error = e.toString();
-    //   });
-    // });
   }
 
 
@@ -173,111 +154,5 @@ final class _DiffToolPageState extends State<_DiffToolPage> {
           RawImage(image: image.$3, width: 200, height: 200)
         ])
     ]);
-    // return FutureBuilder(
-    //     future: _loaded.future,
-    //     builder: (BuildContext context, AsyncSnapshot snapshot) {
-    //       if (snapshot.connectionState == ConnectionState.waiting) {
-    //         return const Center(child: CircularProgressIndicator());
-    //       } else if (snapshot.connectionState == ConnectionState.done) {
-    //         // If there was an error, show it.
-    //         if (_error != null) {
-    //           return Center(
-    //             child: Text(_error!),
-    //           );
-    //         }
-
-    //         // If there are no pairs, we're done.
-    //         if (_pairs!.isEmpty) {
-    //           return const Center(
-    //             child: Text('No golden file pairs found.'),
-    //           );
-    //         }
-
-    //         // If we've reached the end of the pairs, we're done.
-    //         if (_index >= _pairs!.length) {
-    //           return const Center(
-    //             child: Text('All golden file pairs approved or skipped.'),
-    //           );
-    //         }
-
-    //         // Return a UI that shows three panes:
-    //         // 1. The golden image
-    //         // 2. The test image
-    //         // 3. The diff image
-    //         //
-    //         // There is also a button to approve or skip the diff.
-    //         final pair = _pairs![_index];
-    //         final diff = _diffs[_index];
-    //         return Column(
-    //           children: [
-    //             Expanded(
-    //               child: Row(
-    //                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-    //                 crossAxisAlignment: CrossAxisAlignment.stretch,
-    //                 children: [
-    //                   Expanded(
-    //                     child: Column(
-    //                       children: [
-    //                         const Text('Golden'),
-    //                         Expanded(
-    //                           child: Image.file(pair.canonical),
-    //                         ),
-    //                       ],
-    //                     ),
-    //                   ),
-    //                   Expanded(
-    //                     child: Column(
-    //                       children: [
-    //                         const Text('Diff'),
-    //                         Expanded(child: RawImage(image: diff.image)),
-    //                       ],
-    //                     ),
-    //                   ),
-    //                   Expanded(
-    //                     child: Column(
-    //                       children: [
-    //                         const Text('Test'),
-    //                         Expanded(
-    //                           child: Image.file(pair.updated),
-    //                         ),
-    //                       ],
-    //                     ),
-    //                   ),
-    //                 ],
-    //               ),
-    //             ),
-    //             Row(
-    //               children: [
-    //                 Expanded(
-    //                   child: TextButton(
-    //                     child: const Text('Approve'),
-    //                     onPressed: () {
-    //                       // Copy the updated file to the canonical file.
-    //                       pair.updated.copySync(pair.canonical.path);
-    //                       setState(() {
-    //                         _index++;
-    //                       });
-    //                     },
-    //                   ),
-    //                 ),
-    //                 Expanded(
-    //                   child: TextButton(
-    //                     child: const Text('Skip'),
-    //                     onPressed: () {
-    //                       setState(() {
-    //                         _index++;
-    //                       });
-    //                     },
-    //                   ),
-    //                 ),
-    //               ],
-    //             ),
-    //           ],
-    //         );
-    //       } else {
-    //         throw StateError(
-    //             'Unsupported snapshot state: ${snapshot.connectionState}');
-    //       }
-    //     });
   }
 }

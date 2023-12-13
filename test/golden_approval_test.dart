@@ -6,8 +6,8 @@ import 'package:test/test.dart';
 
 void main() {
   test('GoldenFilePair fails if canonical and updated are the same file', () {
-    final a = io.File('foo');
-    final b = io.File('foo');
+    const a = 'foo';
+    const b = 'foo';
     expect(
       () => GoldenFilePair.uncheckedAssumeExists(a, b),
       throwsArgumentError,
@@ -15,10 +15,10 @@ void main() {
   });
 
   test('GoldenFilePair has equality/hashCode support', () {
-    final a = io.File('foo');
-    final b = io.File('bar');
-    final c = io.File('baz');
-    final d = io.File('qux');
+    const a = 'foo';
+    const b = 'bar';
+    const c = 'baz';
+    const d = 'qux';
 
     final pair1 = GoldenFilePair.uncheckedAssumeExists(a, b);
     final pair2 = GoldenFilePair.uncheckedAssumeExists(a, b);
@@ -129,12 +129,12 @@ void main() {
       completion(
         unorderedEquals([
           GoldenFilePair.uncheckedAssumeExists(
-            io.File(p.join(canonicalPath.path, 'foo')),
-            io.File(p.join(updatedPath.path, 'foo')),
+            p.join(canonicalPath.path, 'foo'),
+            p.join(updatedPath.path, 'foo'),
           ),
           GoldenFilePair.uncheckedAssumeExists(
-            io.File(p.join(canonicalPath.path, 'bar', 'baz')),
-            io.File(p.join(updatedPath.path, 'bar', 'baz')),
+            p.join(canonicalPath.path, 'bar', 'baz'),
+            p.join(updatedPath.path, 'bar', 'baz'),
           ),
         ]),
       ),

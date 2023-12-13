@@ -25,6 +25,14 @@ void main() {
 
 ## Design Sketch
 
+- Driver script acts as server
+- Driver script writes test images to temporary directory
+- Target communicates with driver script over vm:service protocol
+- Diff tool is a Flutter app (desktop or browser based)
+- Diff tool approves / skips image deltas.
+
+### Old
+
 Server process running on host machine has following features:
   - Modes:
     - Local: Receive test images from target device and determine if they match the goldens held on the host.
@@ -41,25 +49,14 @@ Server process running on CI machine has the following features:
 Target library has the following features:
    - Provides a new goldenFileComparator that talks to the server.
 
-
 ## TODO
 
-### Code changes
-
-- Better image diffing algorithm (see https://github.com/google/skia-buildbot/blob/main/golden/go/diff/diff.go)
-
-- Frontend server support:
-  - Ability to fetch set of images from CI server.
-  - UI to display and inspect image diffs.
-
-- Backend server support:
-  - Some sort of session key (git repository, branch, commit\_hash) so that the frontend server can fetch their specific set of images.
-  - Export test images that have diffs.
-
-### Workflow changes
-
-This is mostly victory lap stuff.
-
-- We currently stop running tests on the first golden image fail, would be better to run all of them and deal with the diffs as a batch.
-- flutter tool should spawn the backend and frontend servers
-  - block test command from exiting until user requests it.
+- Make it possible to run diff app in the browser
+  - driver protocol needs to manage file I/O on behalf of browser
+- Diff app features:
+  - Magnify tool
+  - Periodic toggle between golden and test image
+- Add a platform view test case
+- Selector and tap support for Android Views
+- How can we enable the same test to run inside of google3
+  - Target code runs the same vm:service protocol but google3 driver talks with scuba

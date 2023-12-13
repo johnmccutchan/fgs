@@ -9,7 +9,7 @@ void main() {
     const a = 'foo';
     const b = 'foo';
     expect(
-      () => GoldenFilePair.uncheckedAssumeExists(a, b),
+      () => GoldenFilePair(a, b, isNew: false),
       throwsArgumentError,
     );
   });
@@ -20,9 +20,9 @@ void main() {
     const c = 'baz';
     const d = 'qux';
 
-    final pair1 = GoldenFilePair.uncheckedAssumeExists(a, b);
-    final pair2 = GoldenFilePair.uncheckedAssumeExists(a, b);
-    final pair3 = GoldenFilePair.uncheckedAssumeExists(c, d);
+    final pair1 = GoldenFilePair(a, b, isNew: false);
+    final pair2 = GoldenFilePair(a, b, isNew: false);
+    final pair3 = GoldenFilePair(c, d, isNew: false);
 
     expect(pair1, equals(pair2));
     expect(pair1.hashCode, equals(pair2.hashCode));
@@ -73,29 +73,6 @@ void main() {
     );
   });
 
-  test('findGoldenPairs fails if a pair cannot be made', () {
-    // Create a temporary directory that exists for 'canonicalPath'.
-    final canonicalPath = io.Directory.systemTemp.createTempSync(
-      'canonicalPath',
-    );
-    addTearDown(() => canonicalPath.deleteSync(recursive: true));
-
-    // Create a temporary directory that exists for 'updatedPath'.
-    final updatedPath = io.Directory.systemTemp.createTempSync('updatedPath');
-    addTearDown(() => updatedPath.deleteSync(recursive: true));
-
-    // Create a file in 'canonicalPath' that does not exist in 'updatedPath'.
-    io.File(p.join(canonicalPath.path, 'foo')).createSync();
-
-    expect(
-      () => findGoldenPairs(
-        canonicalPath.path,
-        updatedPath.path,
-      ),
-      throwsStateError,
-    );
-  });
-
   test('findGoldenPairs pairs files across 2 directories', () {
     // Create a temporary directory that exists for 'canonicalPath'.
     final canonicalPath = io.Directory.systemTemp.createTempSync(
@@ -119,6 +96,9 @@ void main() {
       recursive: true,
     );
 
+    // And create a file that only exists in 'updatedPath'.
+    io.File(p.join(updatedPath.path, 'qux')).createSync();
+
     final pairs = findGoldenPairs(
       canonicalPath.path,
       updatedPath.path,
@@ -128,13 +108,20 @@ void main() {
       pairs,
       completion(
         unorderedEquals([
-          GoldenFilePair.uncheckedAssumeExists(
+          GoldenFilePair(
             p.join(canonicalPath.path, 'foo'),
             p.join(updatedPath.path, 'foo'),
+            isNew: false,
           ),
-          GoldenFilePair.uncheckedAssumeExists(
+          GoldenFilePair(
             p.join(canonicalPath.path, 'bar', 'baz'),
             p.join(updatedPath.path, 'bar', 'baz'),
+            isNew: false,
+          ),
+          GoldenFilePair(
+            p.join(canonicalPath.path, 'qux'),
+            p.join(updatedPath.path, 'qux'),
+            isNew: true,
           ),
         ]),
       ),

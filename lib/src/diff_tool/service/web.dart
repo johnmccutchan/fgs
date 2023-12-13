@@ -17,9 +17,10 @@ final class WebDiffToolService extends DiffToolService {
   WebDiffToolService(this.serverUri);
 
   static GoldenFilePair _fromJson(_JsonMap<Object?> json) {
-    return GoldenFilePair.uncheckedAssumeExists(
+    return GoldenFilePair(
       json['canonicalPath'] as String,
       json['goldenPath'] as String,
+      isNew: json['isNew'] as bool,
     );
   }
 

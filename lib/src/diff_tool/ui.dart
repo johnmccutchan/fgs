@@ -43,7 +43,9 @@ final class GoldenDiffPair {
   final GoldenFilePair pair;
 
   /// The decoded image of [pair.canonicalPath].
-  final img.Image canonicalImage;
+  ///
+  /// If [pair.isNew], then this is `null`.
+  final img.Image? canonicalImage;
 
   /// The decoded image of [pair.updatedPath].
   final img.Image updatedImage;
@@ -72,9 +74,20 @@ final class GoldenDiffPair {
   ) async {
     // Load both the canonical and updated images.
     final [canonicalImage, updatedImage] = await Future.wait([
-      service.load(pair.canonicalPath),
+      pair.isNew ? Future.value() : service.load(pair.canonicalPath),
       service.load(pair.updatedPath),
     ]);
+
+    // If it was new, then the canonical image is null.
+    if (pair.isNew) {
+      return GoldenDiffPair(
+        pair: pair,
+        canonicalImage: null,
+        updatedImage: updatedImage,
+        diffedImage: updatedImage,
+        diffScore: 100,
+      );
+    }
 
     // Compute the diff.
     final diffResult = diffImage(canonicalImage, updatedImage);
@@ -181,7 +194,9 @@ final class _DiffToolAppState extends State<DiffToolApp> {
                     width: 100,
                     height: 100,
                   ),
-                  subtitle: Text(pair.diffScore.toStringAsFixed(2)),
+                  subtitle: pair.pair.isNew
+                      ? const Text('Newly Added')
+                      : Text(pair.diffScore.toStringAsFixed(2)),
                   trailing: _approved.contains(pair.pair)
                       ? const Icon(Icons.check)
                       : const Icon(Icons.question_mark),
@@ -270,7 +285,17 @@ final class _DiffDecisionView extends StatelessWidget {
           ),
           TableRow(
             children: [
-              _DiffImage(image: pair.canonicalImage),
+              pair.canonicalImage != null
+                  ? _DiffImage(image: pair.canonicalImage!)
+                  : SizedBox(
+                      width: pair.updatedImage.width.toDouble(),
+                      height: pair.updatedImage.height.toDouble() / 2,
+                      child: const Center(
+                        child: Text(
+                          'Newly Added',
+                        ),
+                      ),
+                    ),
               _DiffImage(image: pair.diffedImage),
               _DiffImage(image: pair.updatedImage),
             ],

@@ -77,21 +77,18 @@ void main() async {
         } else if (request.method == 'POST' && request.uri.path == '/image') {
           // Return the bytes of either the before or after image based on
           // url param.
-          var body = await request.map(utf8.decoder.convert).join();
-          var jsonBody = json.decode(body);
-          var key = Uri.parse(Uri.decodeFull(jsonBody['key'])).toFilePath();
-          var before = jsonBody['state'] == 'before';
+          Map<String, Object?> body = json.decode(await request.map(utf8.decoder.convert).join());
+          String fileKey = Uri.parse(Uri.decodeFull(body['key'] as String)).toFilePath();
+          var before = body['state'] == 'before';
           var filePath = before
-            ? path.join(goldenServer.existingGoldenBasePath, key)
-            : path.join(goldenServer.tempDirectory.path, key);
+            ? path.join(goldenServer.existingGoldenBasePath, fileKey)
+            : path.join(goldenServer.tempDirectory.path, fileKey);
           var file = File(filePath);
 
           request.response.headers.set(HttpHeaders.contentTypeHeader, 'image/png');
-          if (!file.existsSync()) {
-            request.response.write(kTransparentImage);
-          } else {
-            request.response.write(await file.readAsBytes());
-          }
+          request.response.add(file.existsSync() ? await file.readAsBytes() : kTransparentImage);
+        } else {
+          print('unknown method');
         }
         await request.response.close();
       });

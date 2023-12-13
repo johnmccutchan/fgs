@@ -76,7 +76,7 @@ void main() async {
                 <String, Object?>{
                   'canonicalPath': path.join(goldenServer.existingGoldenBasePath, key),
                   'goldenPath': path.join(goldenServer.tempDirectory.path, key),
-                  'new': File(path.join(goldenServer.existingGoldenBasePath, key)).existsSync(),
+                  'new': !File(path.join(goldenServer.existingGoldenBasePath, key)).existsSync(),
                 },
             ],
           }));
@@ -84,6 +84,14 @@ void main() async {
           final File file = File(await request.map(utf8.decoder.convert).join());
           request.response.headers.set(HttpHeaders.contentTypeHeader, 'image/png');
           request.response.add(file.existsSync() ? await file.readAsBytes() : kTransparentImage);
+        } else if (request.method == 'POST' && request.uri.path == '/approve') {
+          List<Object?> response = json.decode(await request.map(utf8.decoder.convert).join()) as List<Object?>;
+          for (var pair in response) {
+            Map<String, Object?> typedPair = pair as Map<String, Object?>;
+            var newFilePath = typedPair['updatedPath'] as String;
+            var oldFilePath = typedPair['canonicalPath'] as String;
+            await goldenServer.updateGolden(Uri.parse(oldFilePath), File(newFilePath).readAsBytesSync());
+          }
         }
         await request.response.close();
       });

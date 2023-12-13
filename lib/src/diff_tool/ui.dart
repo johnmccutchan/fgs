@@ -59,7 +59,7 @@ final class GoldenDiffPair {
   /// Creates a new [GoldenDiffPair] from the provided images.
   ///
   /// See [loadWith] for a way to populate these images from a [service].
-  const GoldenDiffPair({
+  GoldenDiffPair({
     required this.pair,
     required this.canonicalImage,
     required this.updatedImage,
@@ -100,6 +100,34 @@ final class GoldenDiffPair {
     );
   }
 
+  /// The canonical image, encoded as PNG.
+  ///
+  /// This is a workaround until we move diffing to the service layer.
+  ///
+  /// **NOTE**: This will be `null` if [pair.isNew].
+  late final Image? cachedCanonicalImage = pair.isNew
+      ? null
+      : Image.memory(
+          img.encodePng(canonicalImage!),
+          fit: BoxFit.contain,
+        );
+
+  /// The updated image, encoded as PNG.
+  ///
+  /// This is a workaround until we move diffing to the service layer.
+  late final Image cachedUpdatedImage = Image.memory(
+    img.encodePng(updatedImage),
+    fit: BoxFit.contain,
+  );
+
+  /// The diffed image, encoded as PNG.
+  ///
+  /// This is a workaround until we move diffing to the service layer.
+  late final Image cachedDiffedImage = Image.memory(
+    img.encodePng(diffedImage),
+    fit: BoxFit.contain,
+  );
+
   @override
   String toString() => 'GoldenDiffPair($pair | $diffScore)';
 }
@@ -137,6 +165,12 @@ final class _DiffToolListState extends State<_DiffToolList> {
       return Future.wait(bootstrap.pairs.map((pair) {
         return GoldenDiffPair.loadWith(pair, widget.service);
       })).then((pairs) {
+        // Eagerly cache the images. Remove this once we compute in service.
+        for (final pair in pairs) {
+          pair.cachedCanonicalImage;
+          pair.cachedUpdatedImage;
+          pair.cachedDiffedImage;
+        }
         setState(() {
           _loadedPairs = pairs.length;
           _loadAndDiffTime = stopwatch.elapsed;
@@ -308,7 +342,7 @@ final class _DiffDecisionView extends StatelessWidget {
           TableRow(
             children: [
               pair.canonicalImage != null
-                  ? _DiffImage(image: pair.canonicalImage!)
+                  ? _DiffImage(image: pair.cachedCanonicalImage!)
                   : SizedBox(
                       width: pair.updatedImage.width.toDouble(),
                       height: pair.updatedImage.height.toDouble() / 2,
@@ -318,8 +352,8 @@ final class _DiffDecisionView extends StatelessWidget {
                         ),
                       ),
                     ),
-              _DiffImage(image: pair.diffedImage),
-              _DiffImage(image: pair.updatedImage),
+              _DiffImage(image: pair.cachedDiffedImage),
+              _DiffImage(image: pair.cachedUpdatedImage),
             ],
           ),
         ],
@@ -329,7 +363,7 @@ final class _DiffDecisionView extends StatelessWidget {
 }
 
 final class _DiffImage extends StatelessWidget {
-  final img.Image image;
+  final Widget image;
 
   const _DiffImage({
     required this.image,
@@ -341,10 +375,7 @@ final class _DiffImage extends StatelessWidget {
     // The image is centered vertically but the header is always at the top.
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Image.memory(
-        img.encodePng(image),
-        fit: BoxFit.contain,
-      ),
+      child: image,
     );
   }
 }

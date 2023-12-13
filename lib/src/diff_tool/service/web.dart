@@ -22,7 +22,7 @@ final class WebDiffToolService extends DiffToolService {
     return GoldenFilePair(
       typed['canonicalPath'] as String,
       typed['goldenPath'] as String,
-      isNew: typed['new'] as bool,
+      isNew: !(typed['new'] as bool),
     );
   }
 

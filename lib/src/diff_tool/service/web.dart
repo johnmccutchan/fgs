@@ -19,9 +19,10 @@ final class WebDiffToolService extends DiffToolService {
 
   static GoldenFilePair _fromJson(Object? data) {
     final Map<String, Object?> typed = data as Map<String, Object?>;
-    return GoldenFilePair.uncheckedAssumeExists(
+    return GoldenFilePair(
       typed['canonicalPath'] as String,
       typed['goldenPath'] as String,
+      isNew: typed['new'] as bool,
     );
   }
 
@@ -37,7 +38,8 @@ final class WebDiffToolService extends DiffToolService {
       throw Exception(request.responseText);
     }
 
-    final data = json.decode(request.response as String) as Map<String, Object?>;
+    final data =
+        json.decode(request.response as String) as Map<String, Object?>;
     return DiffToolBootstrap(
       goldenPath: 'a',
       lastRunPath: 'b',

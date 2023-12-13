@@ -33,7 +33,7 @@ import 'package:image/image.dart' as img;
 void runDiffTool({
   required DiffToolService service,
 }) {
-  runApp(DiffToolApp(service: service));
+  runApp(_DiffToolList(service: service));
 }
 
 /// The UI-side of [GoldenFilePair], which includes decoded and diffed images.
@@ -43,7 +43,9 @@ final class GoldenDiffPair {
   final GoldenFilePair pair;
 
   /// The decoded image of [pair.canonicalPath].
-  final img.Image canonicalImage;
+  ///
+  /// If [pair.isNew], then this is `null`.
+  final img.Image? canonicalImage;
 
   /// The decoded image of [pair.updatedPath].
   final img.Image updatedImage;
@@ -72,9 +74,20 @@ final class GoldenDiffPair {
   ) async {
     // Load both the canonical and updated images.
     final [canonicalImage, updatedImage] = await Future.wait([
-      service.load(pair.canonicalPath),
+      pair.isNew ? Future.value() : service.load(pair.canonicalPath),
       service.load(pair.updatedPath),
     ]);
+
+    // If it was new, then the canonical image is null.
+    if (pair.isNew) {
+      return GoldenDiffPair(
+        pair: pair,
+        canonicalImage: null,
+        updatedImage: updatedImage,
+        diffedImage: updatedImage,
+        diffScore: 100,
+      );
+    }
 
     // Compute the diff.
     final diffResult = diffImage(canonicalImage, updatedImage);
@@ -91,24 +104,26 @@ final class GoldenDiffPair {
   String toString() => 'GoldenDiffPair($pair | $diffScore)';
 }
 
-final class DiffToolApp extends StatefulWidget {
+final class _DiffToolList extends StatefulWidget {
   final DiffToolService service;
 
-  const DiffToolApp({
+  const _DiffToolList({
     required this.service,
-    super.key,
   });
 
   @override
-  State<DiffToolApp> createState() => _DiffToolAppState();
+  State<_DiffToolList> createState() => _DiffToolListState();
 }
 
-final class _DiffToolAppState extends State<DiffToolApp> {
+final class _DiffToolListState extends State<_DiffToolList> {
   /// The golden files and their images/diffs.
   ///
   /// If this is `null`, then the app is still loading.
   late Future<List<GoldenDiffPair>> _pairs;
   final Set<GoldenFilePair> _approved = {};
+
+  late int _loadedPairs;
+  Duration? _loadAndDiffTime;
 
   @override
   void initState() {
@@ -117,10 +132,17 @@ final class _DiffToolAppState extends State<DiffToolApp> {
   }
 
   void loadState() {
+    final stopwatch = Stopwatch()..start();
     _pairs = widget.service.list().then((bootstrap) {
       return Future.wait(bootstrap.pairs.map((pair) {
         return GoldenDiffPair.loadWith(pair, widget.service);
-      }));
+      })).then((pairs) {
+        setState(() {
+          _loadedPairs = pairs.length;
+          _loadAndDiffTime = stopwatch.elapsed;
+        });
+        return pairs;
+      });
     });
   }
 
@@ -153,12 +175,25 @@ final class _DiffToolAppState extends State<DiffToolApp> {
             ),
           ],
         ),
+        bottomNavigationBar: BottomAppBar(
+          height: 60,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _loadAndDiffTime != null
+                ? Text(
+                    'Loaded and diffed $_loadedPairs golden files in '
+                    '${_loadAndDiffTime!.inMilliseconds}ms',
+                  )
+                : const Text('Loading...'),
+          ),
+        ),
         body: FutureBuilder<List<GoldenDiffPair>>(
           future: _pairs,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Center(
-                child: Text(snapshot.error.toString() + (snapshot.stackTrace?.toString() ?? '')),
+                child: Text(snapshot.error.toString() +
+                    (snapshot.stackTrace?.toString() ?? '')),
               );
             }
 
@@ -181,7 +216,9 @@ final class _DiffToolAppState extends State<DiffToolApp> {
                     width: 100,
                     height: 100,
                   ),
-                  subtitle: Text(pair.diffScore.toStringAsFixed(2)),
+                  subtitle: pair.pair.isNew
+                      ? const Text('Newly Added')
+                      : Text(pair.diffScore.toStringAsFixed(2)),
                   trailing: _approved.contains(pair.pair)
                       ? const Icon(Icons.check)
                       : const Icon(Icons.question_mark),
@@ -270,7 +307,17 @@ final class _DiffDecisionView extends StatelessWidget {
           ),
           TableRow(
             children: [
-              _DiffImage(image: pair.canonicalImage),
+              pair.canonicalImage != null
+                  ? _DiffImage(image: pair.canonicalImage!)
+                  : SizedBox(
+                      width: pair.updatedImage.width.toDouble(),
+                      height: pair.updatedImage.height.toDouble() / 2,
+                      child: const Center(
+                        child: Text(
+                          'Newly Added',
+                        ),
+                      ),
+                    ),
               _DiffImage(image: pair.diffedImage),
               _DiffImage(image: pair.updatedImage),
             ],

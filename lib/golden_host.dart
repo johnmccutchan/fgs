@@ -39,6 +39,7 @@ class GoldenRequest {
 class GoldenServer {
   final GoldenComparator _comparator = GoldenComparatorImpl();
   final Map<Uri, GoldenComparatorResult> _results = {};
+  final Set<String> _keys = {};
   final String _rootDirectory;
   final Directory tempDirectory;
 
@@ -54,9 +55,10 @@ class GoldenServer {
         'flutter_goldens');
   }
 
-  Iterable<Uri> getAllKeys() => _results.keys;
+  Set<String> getAllKeys() => _keys;
 
   Future<bool> processRequest(GoldenRequest request) async {
+    _keys.add(request.goldenPath);
     Uri goldenUri = _getGoldenFileUri(request);
     switch (request.operation) {
       case shared.requestOperationCompare:

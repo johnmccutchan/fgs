@@ -69,26 +69,20 @@ void main() async {
       server.listen((HttpRequest request) async {
         // Return the set of all golden keys.
         if (request.method == 'GET' && request.uri.path == '/list-images') {
-          var keys = goldenServer.getAllKeys().map((x) => x.toString());
           request.response.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
           request.response.write(json.encode(<String, Object?>{
-            'keys': keys.toList(),
+            'pairs': [
+              for (var key in goldenServer.getAllKeys())
+                <String, Object?>{
+                  'canonicalPath': path.join(goldenServer.existingGoldenBasePath, key),
+                  'goldenPath': path.join(goldenServer.tempDirectory.path, key),
+                },
+            ],
           }));
         } else if (request.method == 'POST' && request.uri.path == '/image') {
-          // Return the bytes of either the before or after image based on
-          // url param.
-          Map<String, Object?> body = json.decode(await request.map(utf8.decoder.convert).join());
-          String fileKey = Uri.parse(Uri.decodeFull(body['key'] as String)).toFilePath();
-          var before = body['state'] == 'before';
-          var filePath = before
-            ? path.join(goldenServer.existingGoldenBasePath, fileKey)
-            : path.join(goldenServer.tempDirectory.path, fileKey);
-          var file = File(filePath);
-
+          final File file = File(await request.map(utf8.decoder.convert).join());
           request.response.headers.set(HttpHeaders.contentTypeHeader, 'image/png');
           request.response.add(file.existsSync() ? await file.readAsBytes() : kTransparentImage);
-        } else {
-          print('unknown method');
         }
         await request.response.close();
       });

@@ -138,7 +138,7 @@ class VmServiceGoldenFileComparator implements GoldenFileComparator {
       'bytes': base64.encode(bytes),
     };
     var completer = pendingRequests[id] = Completer<bool>();
-    dev.postEvent('fgs', parameters);
+    dev.postEvent('fgs.golden', parameters);
     return completer.future;
   }
 

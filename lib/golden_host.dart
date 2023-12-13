@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:image/image.dart';
 import 'package:path/path.dart' as path;
 import 'package:fgs/src/golden_shared.dart' as shared;
 import 'package:fgs/src/golden_comparator.dart';
@@ -56,6 +55,10 @@ class GoldenServer {
   }
 
   Set<String> getAllKeys() => _keys;
+
+  Future<void> updateGolden(Uri goldenUri, Uint8List bytes) async {
+    await _comparator.update(goldenUri, bytes);
+  }
 
   Future<bool> processRequest(GoldenRequest request) async {
     _keys.add(request.goldenPath);

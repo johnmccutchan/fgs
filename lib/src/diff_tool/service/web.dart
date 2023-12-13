@@ -68,7 +68,7 @@ final class WebDiffToolService extends DiffToolService {
   @override
   Future<void> approve(List<GoldenFilePair> pairs) async {
     // Make a POST request to the server with the list of pairs to approve.
-    final _JsonList<_JsonMap> json = pairs.map((pair) {
+    final List<Object?> data = pairs.map((pair) {
       return {
         'canonicalPath': pair.canonicalPath,
         'updatedPath': pair.updatedPath,
@@ -76,9 +76,9 @@ final class WebDiffToolService extends DiffToolService {
     }).toList();
 
     final request = await html.HttpRequest.request(
-      serverUri.toString(),
+      serverUri.resolve('approve').toString(),
       method: 'POST',
-      sendData: json,
+      sendData: json.encode(data),
     );
 
     // If the server returns an error, throw it.

@@ -7,6 +7,19 @@ import 'package:fgs/golden_host.dart';
 import 'package:flutter_driver/flutter_driver.dart';
 import 'package:path/path.dart' as path;
 
+const List<int> kTransparentImage = <int>[
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49,
+  0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06,
+  0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x06, 0x62, 0x4B,
+  0x47, 0x44, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0xA0, 0xBD, 0xA7, 0x93, 0x00,
+  0x00, 0x00, 0x09, 0x70, 0x48, 0x59, 0x73, 0x00, 0x00, 0x0B, 0x13, 0x00, 0x00,
+  0x0B, 0x13, 0x01, 0x00, 0x9A, 0x9C, 0x18, 0x00, 0x00, 0x00, 0x07, 0x74, 0x49,
+  0x4D, 0x45, 0x07, 0xE6, 0x03, 0x10, 0x17, 0x07, 0x1D, 0x2E, 0x5E, 0x30, 0x9B,
+  0x00, 0x00, 0x00, 0x0B, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0x60, 0x00,
+  0x02, 0x00, 0x00, 0x05, 0x00, 0x01, 0xE2, 0x26, 0x05, 0x9B, 0x00, 0x00, 0x00,
+  0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+];
+
 GoldenServer setupGoldenServer() {
   Directory current = Directory.current;
   Directory? projectRoot;
@@ -52,17 +65,52 @@ void main() async {
     if (event.extensionKind == 'fgs.done') {
       // Once all tests are finished, we can pop open a browser/flutter app
       // and show the diffs. This exit call can block on the acceptance.
+      final HttpServer server = await HttpServer.bind(InternetAddress.loopbackIPv4, 9999);
+      server.listen((HttpRequest request) async {
+        // Return the set of all golden keys.
+        if (request.method == 'GET' && request.uri.path == '/list-images') {
+          var keys = goldenServer.getAllKeys().map((x) => x.toString());
+          request.response.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+          request.response.write(json.encode(<String, Object?>{
+            'keys': keys.toList(),
+          }));
+        } else if (request.method == 'POST' && request.uri.path == '/image') {
+          // Return the bytes of either the before or after image based on
+          // url param.
+          var body = await request.map(utf8.decoder.convert).join();
+          var jsonBody = json.decode(body);
+          var key = Uri.parse(Uri.decodeFull(jsonBody['key'])).toFilePath();
+          var before = jsonBody['state'] == 'before';
+          var filePath = before
+            ? path.join(goldenServer.existingGoldenBasePath, key)
+            : path.join(goldenServer.tempDirectory.path, key);
+          var file = File(filePath);
+
+          request.response.headers.set(HttpHeaders.contentTypeHeader, 'image/png');
+          if (!file.existsSync()) {
+            request.response.write(kTransparentImage);
+          } else {
+            request.response.write(await file.readAsBytes());
+          }
+        }
+        await request.response.close();
+      });
+
       var process = await Process.start('flutter', <String>[
         'run',
         '-d',
-        'macos',
+        'chrome',
         '-t',
-        'lib/main_diff_tool.dart',
-        '-a ${goldenServer.tempDirectory.absolute.path}',
-        '-a ${path.absolute(goldenServer.existingGoldenBasePath)}',
+        'lib/main_diff_tool_web.dart',
+        '--web-browser-flag=--disable-web-security',
+        '--dart-define=fgs.serverPort=${server.port}'
       ]);
-      await process.exitCode;
+      process.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen(print);
+      process.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen(print);
 
+      // Shutdown.
+      await process.exitCode;
+      await server.close();
       goldenServer.tempDirectory.deleteSync(recursive: true);
       for (var subscription in subscriptions) {
         await subscription.cancel();

@@ -7,9 +7,9 @@ void _validateImageFormat(ImageData? data) {
   if (data == null) {
     throw UnsupportedError("Unknown image format.");
   }
-  if (data.numChannels != 4) {
+  if (data.numChannels < 3) {
     throw UnsupportedError(
-        "Expected 4 channels in image format was ${data.numChannels}");
+        "Expected >= 3 channels in image format was ${data.numChannels}");
   }
   if (data.format != Format.uint8) {
     throw UnsupportedError(
@@ -22,9 +22,9 @@ void _validateColorFormat(Color? color) {
   if (color == null) {
     throw UnsupportedError("Unknown color format");
   }
-  if (color.length != 4) {
+  if (color.length < 3) {
     throw UnsupportedError(
-        "Expected 4 channels in color was ${color.maxChannelValue}");
+        "Expected >= 3 channels in color was ${color.length}");
   }
   if (color.format != Format.uint8) {
     throw UnsupportedError(
@@ -107,6 +107,7 @@ class ImageDiffResult {
 // Returns the difference between [golden] and [test].
 ImageDiffResult diffImage(Image? golden, Image? test) {
   if (golden == null && test == null) {
+    print('a');
     return ImageDiffResult(
         golden, test, Image(width: 0, height: 0, numChannels: 4), 0.0);
   }

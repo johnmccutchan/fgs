@@ -1,8 +1,11 @@
 import 'dart:io' as io;
-
+import 'dart:ui' as ui;
+import 'dart:async';
 import 'package:fgs/golden_approval.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:image/image.dart' as img;
+import 'package:fgs/diff.dart';
 
 /// The entry point for the diff tool.
 ///
@@ -17,7 +20,11 @@ import 'package:path/path.dart' as p;
 /// ```
 void main(List<String> args) {
   if (args.length != 2) {
-    runApp(const MaterialApp(home: Scaffold(body: Center(child: Text('Usage: diff_tool <path-to-goldens> <path-to-last-run>')))));
+    runApp(const MaterialApp(
+        home: Scaffold(
+            body: Center(
+                child: Text(
+                    'Usage: diff_tool <path-to-goldens> <path-to-last-run>')))));
     return;
   }
 
@@ -26,12 +33,21 @@ void main(List<String> args) {
 
   // Assert both paths exist.
   if (!io.Directory(goldenPath).existsSync()) {
-    runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Path "$goldenPath" (${p.absolute(goldenPath)}) does not exist.',)))));
+    runApp(MaterialApp(
+        home: Scaffold(
+            body: Center(
+                child: Text(
+      'Path "$goldenPath" (${p.absolute(goldenPath)}) does not exist.',
+    )))));
     return;
   }
 
   if (!io.Directory(lastRunPath).existsSync()) {
-    runApp(MaterialApp(home: Scaffold(body: Center(child: Text( 'Path "$lastRunPath" (${p.absolute(lastRunPath)}) does not exist.')))));
+    runApp(MaterialApp(
+        home: Scaffold(
+            body: Center(
+                child: Text(
+                    'Path "$lastRunPath" (${p.absolute(lastRunPath)}) does not exist.')))));
     return;
   }
 
@@ -99,8 +115,34 @@ final class _DiffToolPage extends StatefulWidget {
   State<_DiffToolPage> createState() => _DiffToolPageState();
 }
 
+final class Diff {
+  final ui.Image image;
+  final double percentDifferent;
+  Diff(this.image, this.percentDifferent);
+}
+
+Future<ui.Image> convertToUiImage(img.Image image) async {
+  ui.ImmutableBuffer buffer =
+      await ui.ImmutableBuffer.fromUint8List(image.toUint8List());
+
+  ui.ImageDescriptor id = ui.ImageDescriptor.raw(buffer,
+      height: image.height,
+      width: image.width,
+      pixelFormat: ui.PixelFormat.rgba8888);
+
+  ui.Codec codec = await id.instantiateCodec(
+      targetHeight: image.height, targetWidth: image.width);
+
+  ui.FrameInfo fi = await codec.getNextFrame();
+  ui.Image uiImage = fi.image;
+
+  return uiImage;
+}
+
 final class _DiffToolPageState extends State<_DiffToolPage> {
   List<GoldenFilePair>? _pairs;
+  List<Diff> _diffs = [];
+  final Completer _loaded = new Completer();
   int _index = 0;
   String? _error;
 
@@ -109,11 +151,24 @@ final class _DiffToolPageState extends State<_DiffToolPage> {
     super.initState();
 
     // Load golden file pairs.
-    // TODO: Use FutureBuilder or something similar instead.
-    findGoldenPairs(widget.goldenPath, widget.lastRunPath).then((pairs) {
-      setState(() {
-        _pairs = pairs;
-      });
+    findGoldenPairs(widget.goldenPath, widget.lastRunPath).then((pairs) async {
+      _pairs = pairs;
+      for (final pair in pairs) {
+        final cmd = img.Command();
+        cmd.decodeImageFile(pair.canonical.path);
+        img.Image? golden = await cmd.getImage();
+        cmd.decodeImageFile(pair.updated.path);
+        img.Image? test = await cmd.getImage();
+        try {
+          ImageDiffResult diffResult = diffImage(golden, test);
+          ui.Image uiDiffImage = await convertToUiImage(diffResult.diff);
+          _diffs.add(Diff(uiDiffImage, diffResult.percentDifferent));
+        } catch (e) {
+          print(e);
+        }
+      }
+      _loaded.complete();
+      setState(() {});
     }).catchError((e) {
       setState(() {
         _error = e.toString();
@@ -123,111 +178,111 @@ final class _DiffToolPageState extends State<_DiffToolPage> {
 
   @override
   Widget build(BuildContext context) {
-    // If pairs is null, we're loading.
-    if (_pairs == null) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
+    return FutureBuilder(
+        future: _loaded.future,
+        builder: (BuildContext context, AsyncSnapshot snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.connectionState == ConnectionState.done) {
+            // If there was an error, show it.
+            if (_error != null) {
+              return Center(
+                child: Text(_error!),
+              );
+            }
 
-    // If there was an error, show it.
-    if (_error != null) {
-      return Center(
-        child: Text(_error!),
-      );
-    }
+            // If there are no pairs, we're done.
+            if (_pairs!.isEmpty) {
+              return const Center(
+                child: Text('No golden file pairs found.'),
+              );
+            }
 
-    // If there are no pairs, we're done.
-    if (_pairs!.isEmpty) {
-      return const Center(
-        child: Text('No golden file pairs found.'),
-      );
-    }
+            // If we've reached the end of the pairs, we're done.
+            if (_index >= _pairs!.length) {
+              return const Center(
+                child: Text('All golden file pairs approved or skipped.'),
+              );
+            }
 
-    // If we've reached the end of the pairs, we're done.
-    if (_index >= _pairs!.length) {
-      return const Center(
-        child: Text('All golden file pairs approved or skipped.'),
-      );
-    }
-
-    // Return a UI that shows three panes:
-    // 1. The golden image
-    // 2. The test image
-    // 3. The diff image
-    //
-    // There is also a button to approve or skip the diff.
-    final pair = _pairs![_index];
-    return Column(
-      children: [
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    const Text('Golden'),
-                    Expanded(
-                      child: Image.file(pair.canonical),
-                    ),
-                  ],
+            // Return a UI that shows three panes:
+            // 1. The golden image
+            // 2. The test image
+            // 3. The diff image
+            //
+            // There is also a button to approve or skip the diff.
+            final pair = _pairs![_index];
+            final diff = _diffs[_index];
+            return Column(
+              children: [
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          children: [
+                            const Text('Golden'),
+                            Expanded(
+                              child: Image.file(pair.canonical),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            const Text('Diff'),
+                            Expanded(child: RawImage(image: diff.image)),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            const Text('Test'),
+                            Expanded(
+                              child: Image.file(pair.updated),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Column(
+                Row(
                   children: [
-                    const Text('Diff'),
                     Expanded(
-                      child: widget.diffImage(
-                        Image.file(pair.canonical),
-                        Image.file(pair.updated),
+                      child: TextButton(
+                        child: const Text('Approve'),
+                        onPressed: () {
+                          // Copy the updated file to the canonical file.
+                          pair.updated.copySync(pair.canonical.path);
+                          setState(() {
+                            _index++;
+                          });
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: TextButton(
+                        child: const Text('Skip'),
+                        onPressed: () {
+                          setState(() {
+                            _index++;
+                          });
+                        },
                       ),
                     ),
                   ],
                 ),
-              ),
-              Expanded(
-                child: Column(
-                  children: [
-                    const Text('Test'),
-                    Expanded(
-                      child: Image.file(pair.updated),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: TextButton(
-                child: const Text('Approve'),
-                onPressed: () {
-                  // Copy the updated file to the canonical file.
-                  pair.updated.copySync(pair.canonical.path);
-                  setState(() {
-                    _index++;
-                  });
-                },
-              ),
-            ),
-            Expanded(
-              child: TextButton(
-                child: const Text('Skip'),
-                onPressed: () {
-                  setState(() {
-                    _index++;
-                  });
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+              ],
+            );
+          } else {
+            throw StateError(
+                'Unsupported snapshot state: ${snapshot.connectionState}');
+          }
+        });
   }
 }

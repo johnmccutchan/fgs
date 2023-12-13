@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -28,12 +29,10 @@ final GoldenServer goldenServer = setupGoldenServer();
 
 void main() async {
   final FlutterDriver driver = await FlutterDriver.connect();
-  // TODO: this might be flaky, change code so that we don't unpause app isolate
-  // until this setup is complete. Possible by adding hook to FlutterDriver
-  // connect.
-  await driver.serviceClient.streamListen('Extension');
-  driver.serviceClient.onExtensionEvent.listen((event) async {
-    if (event.extensionKind == 'fgs') {
+  List<StreamSubscription> subscriptions = <StreamSubscription>[];
+
+  subscriptions.add(driver.serviceClient.onExtensionEvent.listen((event) async {
+    if (event.extensionKind == 'fgs.golden') {
       final Map<String, Object?> extensionData = event.extensionData!.data;
       final Uint8List imageBytes = base64.decode(extensionData['bytes']! as String);
       final Map<String, String> params = (extensionData['golden_params']! as Map<Object?, Object?>).cast<String, String>();
@@ -47,5 +46,28 @@ void main() async {
         }),
       }, isolateId: event.isolate!.id);
     }
-  });
+
+    if (event.extensionKind == 'fgs.done') {
+      // Once all tests are finished, we can pop open a browser/flutter app
+      // and show the diffs. This exit call can block on the acceptance.
+      var process = await Process.start('flutter', <String>[
+        'run',
+        '-d',
+        'chrome',
+      ]);
+      await process.exitCode;
+
+      for (var subscription in subscriptions) {
+        await subscription.cancel();
+      }
+      await driver.close();
+    }
+  }));
+
+  // TODO: this might be flaky, change code so that we don't unpause app isolate
+  // until this setup is complete. Possible by adding hook to FlutterDriver
+  // connect.
+  await Future.wait([
+    driver.serviceClient.streamListen('Extension'),
+  ]);
 }

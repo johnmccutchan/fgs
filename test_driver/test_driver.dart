@@ -76,6 +76,7 @@ void main() async {
                 <String, Object?>{
                   'canonicalPath': path.join(goldenServer.existingGoldenBasePath, key),
                   'goldenPath': path.join(goldenServer.tempDirectory.path, key),
+                  'new': File(path.join(goldenServer.existingGoldenBasePath, key)).existsSync(),
                 },
             ],
           }));

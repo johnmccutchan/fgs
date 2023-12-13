@@ -1,3 +1,4 @@
+import 'dart:convert';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import 'dart:typed_data';
@@ -16,18 +17,19 @@ final class WebDiffToolService extends DiffToolService {
 
   WebDiffToolService(this.serverUri);
 
-  static GoldenFilePair _fromJson(_JsonMap<Object?> json) {
+  static GoldenFilePair _fromJson(Object? data) {
+    final Map<String, Object?> typed = data as Map<String, Object?>;
     return GoldenFilePair(
-      json['canonicalPath'] as String,
-      json['goldenPath'] as String,
-      isNew: json['isNew'] as bool,
+      typed['canonicalPath'] as String,
+      typed['goldenPath'] as String,
+      isNew: typed['new'] as bool,
     );
   }
 
   @override
   Future<DiffToolBootstrap> list() async {
     final request = await html.HttpRequest.request(
-      serverUri.toString(),
+      serverUri.resolve('list-images').toString(),
       method: 'GET',
     );
 
@@ -36,19 +38,22 @@ final class WebDiffToolService extends DiffToolService {
       throw Exception(request.responseText);
     }
 
-    final json = request.response as Map<String, Object?>;
+    final data =
+        json.decode(request.response as String) as Map<String, Object?>;
     return DiffToolBootstrap(
-      goldenPath: json['goldenPath'] as String,
-      lastRunPath: json['lastRunPath'] as String,
-      pairs: (json['pairs'] as _JsonList<_JsonMap>).map(_fromJson).toList(),
+      goldenPath: 'a',
+      lastRunPath: 'b',
+      pairs: (data['pairs'] as List<Object?>).map(_fromJson).toList(),
     );
   }
 
   @override
   Future<Image> load(String path) async {
     final request = await html.HttpRequest.request(
-      serverUri.resolve(path).toString(),
-      method: 'GET',
+      serverUri.resolve('image').toString(),
+      method: 'POST',
+      sendData: path,
+      responseType: 'arraybuffer',
     );
 
     // If the server returns an error, throw it.

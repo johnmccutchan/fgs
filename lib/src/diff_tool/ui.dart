@@ -171,7 +171,7 @@ final class _DiffToolAppState extends State<DiffToolApp> {
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Center(
-                child: Text(snapshot.error.toString()),
+                child: Text(snapshot.error.toString() + (snapshot.stackTrace?.toString() ?? '')),
               );
             }
 

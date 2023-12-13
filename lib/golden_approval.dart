@@ -39,7 +39,7 @@ final class GoldenFilePair {
       throw ArgumentError.value(
         canonicalPath,
         'canonicalPath',
-        'must not be the same file as updatedPath',
+        'must not be the same file as updatedPath: $updatedPath',
       );
     }
   }

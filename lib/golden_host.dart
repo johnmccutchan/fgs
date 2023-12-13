@@ -54,6 +54,8 @@ class GoldenServer {
         'flutter_goldens');
   }
 
+  Iterable<Uri> getAllKeys() => _results.keys;
+
   Future<bool> processRequest(GoldenRequest request) async {
     Uri goldenUri = _getGoldenFileUri(request);
     switch (request.operation) {

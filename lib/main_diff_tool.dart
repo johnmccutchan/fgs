@@ -1,11 +1,63 @@
+/// A Flutter app that compares and approves golden file changes.
+///
+/// ## State management
+///
+/// The diff tool is a stateful app that maintains a list of golden file pairs,
+/// and whether or not they have been approved or rejected (i.e. skipped). It
+/// uses a [DiffToolService] to load the golden file pairs, and make changes to
+/// the golden files on disk.
+library;
+
+import 'dart:async';
 import 'dart:io' as io;
 import 'dart:ui' as ui;
-import 'dart:async';
+
 import 'package:fgs/golden_approval.dart';
+import 'package:fgs/diff.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
-import 'package:fgs/diff.dart';
+
+/// Configuration for how the initialize the diff tool.
+final class DiffToolBootstrap {
+  /// Where the golden files are located.
+  ///
+  /// On an initial run of a newly authored test, this directory may be blank
+  /// or contain only a few golden files. On subsequent runs, this directory
+  /// will contain all the golden files within [lastRunPath].
+  final String goldenPath;
+
+  /// Where the last run's golden files are located.
+  final String lastRunPath;
+
+  /// The pairs of golden files found in [goldenPath] and [lastRunPath].
+  ///
+  /// See [GoldenFilePair] for more information.
+  final List<GoldenFilePair> pairs;
+
+  /// Initializes the diff tool with path and pair information.
+  DiffToolBootstrap({
+    required this.goldenPath,
+    required this.lastRunPath,
+    required this.pairs,
+  });
+}
+
+/// Service API for the diff tool.
+///
+/// As a desktop app, the tool is able to load and make changes to files
+/// synchronously. However, the APIs are still asynchronous to allow for a
+/// server-side implementation with a web UI.
+abstract base class DiffToolService {
+  /// Loads the golden file pairs from [goldenPath] and [lastRunPath].
+  Future<DiffToolBootstrap> load();
+
+  /// Approves the golden file pairs in [pairs].
+  ///
+  /// In practice, this copies the updated golden file to the canonical golden
+  /// file, making changes to the golden files on disk.
+  Future<void> approve(List<GoldenFilePair> pairs);
+}
 
 /// The entry point for the diff tool.
 ///
@@ -155,9 +207,9 @@ final class _DiffToolPageState extends State<_DiffToolPage> {
       _pairs = pairs;
       for (final pair in pairs) {
         final cmd = img.Command();
-        cmd.decodeImageFile(pair.canonical.path);
+        cmd.decodeImageFile(pair.canonicalPath);
         img.Image? golden = await cmd.getImage();
-        cmd.decodeImageFile(pair.updated.path);
+        cmd.decodeImageFile(pair.updatedPath);
         img.Image? test = await cmd.getImage();
         try {
           ImageDiffResult diffResult = diffImage(golden, test);
@@ -225,7 +277,7 @@ final class _DiffToolPageState extends State<_DiffToolPage> {
                           children: [
                             const Text('Golden'),
                             Expanded(
-                              child: Image.file(pair.canonical),
+                              child: Image.file(io.File(pair.canonicalPath)),
                             ),
                           ],
                         ),
@@ -243,7 +295,7 @@ final class _DiffToolPageState extends State<_DiffToolPage> {
                           children: [
                             const Text('Test'),
                             Expanded(
-                              child: Image.file(pair.updated),
+                              child: Image.file(io.File(pair.updatedPath)),
                             ),
                           ],
                         ),
@@ -258,7 +310,8 @@ final class _DiffToolPageState extends State<_DiffToolPage> {
                         child: const Text('Approve'),
                         onPressed: () {
                           // Copy the updated file to the canonical file.
-                          pair.updated.copySync(pair.canonical.path);
+                          io.File(pair.updatedPath)
+                              .copySync(pair.canonicalPath);
                           setState(() {
                             _index++;
                           });

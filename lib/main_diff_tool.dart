@@ -17,26 +17,22 @@ import 'package:path/path.dart' as p;
 /// ```
 void main(List<String> args) {
   if (args.length != 2) {
-    io.stderr.writeln('Usage: diff_tool <path-to-goldens> <path-to-last-run>');
-    io.exit(1);
+    runApp(const MaterialApp(home: Scaffold(body: Center(child: Text('Usage: diff_tool <path-to-goldens> <path-to-last-run>')))));
+    return;
   }
 
-  final goldenPath = args[0];
-  final lastRunPath = args[1];
+  final goldenPath = args[0].trim();
+  final lastRunPath = args[1].trim();
 
   // Assert both paths exist.
   if (!io.Directory(goldenPath).existsSync()) {
-    io.stderr.writeln(
-      'Path "$goldenPath" (${p.absolute(goldenPath)}) does not exist.',
-    );
-    io.exit(1);
+    runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Path "$goldenPath" (${p.absolute(goldenPath)}) does not exist.',)))));
+    return;
   }
 
   if (!io.Directory(lastRunPath).existsSync()) {
-    io.stderr.writeln(
-      'Path "$lastRunPath" (${p.absolute(lastRunPath)}) does not exist.',
-    );
-    io.exit(1);
+    runApp(MaterialApp(home: Scaffold(body: Center(child: Text( 'Path "$lastRunPath" (${p.absolute(lastRunPath)}) does not exist.')))));
+    return;
   }
 
   runApp(DiffToolApp(

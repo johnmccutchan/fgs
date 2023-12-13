@@ -298,12 +298,6 @@ packages:
   mime:
     dependency: transitive
     description:
-<<<<<<< HEAD
-      name: path
-      sha256: "087ce49c3f0dc39180befefc60fdb4acd8f8620e5682fe2476afd0b3688bb4af"
-      url: "https://pub.dev"
-    source: hosted
-=======
       name: mime
       sha256: e4ff8e8564c03f255408decd16e7899da1733852a9110a58fe6d1b817684a63e
       url: "https://pub.dev"
@@ -332,7 +326,6 @@ packages:
       sha256: "087ce49c3f0dc39180befefc60fdb4acd8f8620e5682fe2476afd0b3688bb4af"
       url: "https://pub.dev"
     source: hosted
->>>>>>> 8d3e8eb (Add diff_tool and demo.)
     version: "1.9.0"
   petitparser:
     dependency: transitive

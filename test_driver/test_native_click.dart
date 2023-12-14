@@ -25,6 +25,11 @@ void main() async {
     await flutterTestNativeApi
         .tap(SelectorMessage(className: "android.widget.TextView"));
 
+    await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+
     await expectLater(find.byType(MyApp), matchesGoldenFile('basic.png'));
   });
 

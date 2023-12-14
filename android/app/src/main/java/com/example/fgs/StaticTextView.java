@@ -36,19 +36,17 @@ class StaticTextView implements PlatformView {
     StringBuilder sb = new StringBuilder();
     sb.append("Static Text View (id: " + id + ")\n");
     sb.append(" " + clickCount + " ");
-    clickCount++;
     textView.setText(sb.toString());
     
-
     textView.setOnTouchListener(new View.OnTouchListener() {
       @Override
       public boolean onTouch(View v, MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_UP) {
+          clickCount++;
           textView.setBackgroundColor(Utils.getRandomColor());
           StringBuilder sb = new StringBuilder();
           sb.append("Static Text View (id: " + id + ")\n");
           sb.append(" " + clickCount + " ");
-          clickCount++;
           textView.setText(sb.toString());
         }
         Log.e(TAG, "#onTouch " + event.getAction());

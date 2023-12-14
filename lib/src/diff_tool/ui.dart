@@ -110,6 +110,8 @@ final class GoldenDiffPair {
       : Image.memory(
           img.encodePng(canonicalImage!),
           fit: BoxFit.contain,
+          width: canonicalImage!.width.toDouble(),
+          height: canonicalImage!.height.toDouble(),
         );
 
   /// The updated image, encoded as PNG.
@@ -118,6 +120,8 @@ final class GoldenDiffPair {
   late final Image cachedUpdatedImage = Image.memory(
     img.encodePng(updatedImage),
     fit: BoxFit.contain,
+    width: updatedImage.width.toDouble(),
+    height: updatedImage.height.toDouble(),
   );
 
   /// The diffed image, encoded as PNG.
@@ -126,6 +130,8 @@ final class GoldenDiffPair {
   late final Image cachedDiffedImage = Image.memory(
     img.encodePng(diffedImage),
     fit: BoxFit.contain,
+    width: diffedImage.width.toDouble(),
+    height: diffedImage.height.toDouble(),
   );
 
   @override
@@ -363,7 +369,7 @@ final class _DiffDecisionView extends StatelessWidget {
 }
 
 final class _DiffImage extends StatelessWidget {
-  final Widget image;
+  final Image image;
 
   const _DiffImage({
     required this.image,
@@ -375,7 +381,12 @@ final class _DiffImage extends StatelessWidget {
     // The image is centered vertically but the header is always at the top.
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: image,
+      child: RawMagnifier(
+        focalPointOffset: Offset(0, image.height! / 2),
+        size: const Size(160, 160),
+        magnificationScale: 2,
+        child: image,
+      ),
     );
   }
 }
